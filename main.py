@@ -16,11 +16,20 @@ class ConnectionManager:
         self.active_connections.remove(websocket)
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
-        await websocket.send_text(message)
+        try:
+            await websocket.send_text(message)
+        except RuntimeError:
+            pass
 
     async def broadcast(self, message: str):
+        disconnected = []
         for connection in self.active_connections:
-            await connection.send_json(message)
+            try:
+                await connection.send_json(message)
+            except RuntimeError:
+                disconnected.append(connection)
+        for conn in disconnected:
+            self.disconnect(conn)
 
 
 manager = ConnectionManager()
@@ -45,7 +54,6 @@ async def websocket_endpoint(websocket: WebSocket):
             await manager.broadcast(carData)
 
     except WebSocketDisconnect:
-        await manager.send_personal_message("Disconnected", websocket)
         manager.disconnect(websocket)
 
     except Exception as e:
